@@ -1,13 +1,32 @@
+/*---------------------------------------
+|
+| Modules
+|
+----------------------------------------*/ 
+
 import dotenv from "dotenv";
 import express from "express";
 import axios from "axios";
 import crypto from "crypto";
+import { Client, GatewayIntentBits } from "discord.js";
 
-dotenv.config();
+dotenv.config({path: ['.env']});
+
+/*---------------------------------------
+|
+| Varaibles & Objects
+|
+----------------------------------------*/
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const DISCORD_WEBHOOK_URL = `https://discord.com/api/webhooks/${process.env.WEBHOOK_ID}/${process.env.WEBHOOK_TOKEN}`;
+
+/*---------------------------------------
+|
+| Functions
+|
+----------------------------------------*/
 
 // Verify GitHub HMAC signature
 function verifyGitHubSignature(req, res, buf) {
@@ -31,7 +50,18 @@ function verifyGitHubSignature(req, res, buf) {
 
 app.use(express.json({ verify: verifyGitHubSignature }));
 
+/*---------------------------------------
+|
+| HTTP Requests
+|
+----------------------------------------*/
+
+// GET Request - https://domain.tld
+
 app.get("/", (req, res) => res.send("GitHub → Discord relay active"));
+
+
+// POST Request - https://domain.tld/github
 
 app.post("/github", async (req, res) => {
     const event = req.headers["x-github-event"];
@@ -78,3 +108,17 @@ app.post("/github", async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
 });
+
+/*---------------------------------------
+|
+| Registering Client to Login Bot
+|
+----------------------------------------*/
+
+// Declare client and register intent
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds],
+})
+
+// Login
+client.login(process.env.BOT_TOKEN);
