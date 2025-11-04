@@ -20,7 +20,6 @@ dotenv.config({path: ['.env']});
 
 const app = express();
 const PORT = process.env.PORT;
-const DISCORD_WEBHOOK_URL = `https://discord.com/api/webhooks/${process.env.WEBHOOK_ID}/${process.env.WEBHOOK_TOKEN}`;
 
 /*---------------------------------------
 |
@@ -96,7 +95,7 @@ app.post("/github", async (req, res) => {
             if (payload.action) content += ` (${payload.action})`;
         }
 
-        await axios.post(DISCORD_WEBHOOK_URL, { content });
+        await axios.post(process.env.DISCORD_WEBHOOK_URL, { content });
         console.log(`Posted ${event} event to Discord`);
         res.sendStatus(200);
     } catch (err) {

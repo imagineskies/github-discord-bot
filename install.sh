@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Defining an array of packages required to deploy this bot
-requiredPrograms=('wget' 'npm' 'nodejs')
+requiredPrograms=('wget' 'npm' 'nodejs' 'nginx')
 installList=()
 
 # Check to see if any packages are not installed. Append missing prograpackagesms to array
@@ -53,9 +53,8 @@ wget -q "https://raw.githubusercontent.com/imagineskies/github-discord-bot/refs/
 touch .env
 chmod 600 .env
 
-read -p "Enter a port to listen to:  " listenPort
-read -s -p "Enter Webhook ID: " webhookID; echo
-read -s -p "Enter Webhook Token: " webhookTKN; echo
+read -p "Enter a port to listen to:  " listenPort; echo
+read -s -p "Enter Webhook URL: " webhookURL; echo
 read -s -p "Enter Bot Token: " botToken; echo
 
 random_str=$(openssl rand -base64 48 | tr -d '+/=' | head -c 64)
@@ -63,9 +62,8 @@ random_str=$(openssl rand -base64 48 | tr -d '+/=' | head -c 64)
 envBody=$(cat <<EOF
 GITHUB_SECRET="$random_str"
 BOT_TOKEN="$botToken"
-WEBHOOK_TOKEN="$webhookTKN"
 PORT="$listenPort"
-WEBHOOK_ID="$webhookID"
+DISCORD_WEBHOOK_URL="$webhookURL"
 EOF
 )
 echo "$envBody" >> .env
@@ -109,3 +107,49 @@ echo "$systemD" | sudo tee /etc/systemd/system/gitbot.service > /dev/null
 
 sudo systemctl daemon-reload
 sudo systemctl enable --now gitbot.service
+
+
+# Request domain name from user
+read -p "Enter your domain name: " domainName
+
+
+# Create log files
+gitBotAccessDir="/var/log/nginx/gitbot-access.log"
+gitBotErrorDir="/var/log/nginx/gitbot-error.log"
+
+sudo touch "$gitBotAccessDir"
+sudo chown $USER:$USER "$gitBotAccessDir"
+sudo chmod 660 "$gitBotAccessDir"
+
+sudo touch "$gitBotErrorDir"
+sudo chown $USER:$USER "$gitBotErrorDir"
+sudo chmod 660 "$gitBotErrorDir"
+
+# Create reverse proxy config file
+reverseProx=$(cat <<EOF
+server {
+    server_name "$domainName";
+
+    access_log "$gitBotAccessDir";
+    error_log "$gitBotErrorDir";
+
+    client_max_body_size 50M;
+
+    location / {
+
+        proxy_pass http://127.0.0.1:3000;
+
+    }
+}
+EOF
+)
+echo "$reverseProx" | sudo tee /etc/nginx/sites-available/gitbot.conf > /dev/null
+
+# Create symlink between available and enabled sites
+sudo ln -s /etc/nginx/sites-available/gitbot.conf /etc/nginx/sites-enabled/gitbot.conf
+
+# Restart nginx to load changes
+sudo service nginx restart
+
+# Generate TLS Certificate
+sudo certbot --nginx -d "$domainName"
